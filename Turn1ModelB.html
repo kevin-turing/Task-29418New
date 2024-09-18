@@ -1,1 +1,123 @@
-T1MB
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Aim and Shoot the Bird</title>
+<style>
+    body { margin: 0; background: #87CEEB; overflow: hidden; }
+    canvas { display: block; }
+    #uiLayer { position: absolute; top: 10px; left: 10px; color: white; font-family: Arial, sans-serif; }
+</style>
+</head>
+<body>
+<canvas id="gameCanvas"></canvas>
+<div id="uiLayer">
+    <div>Ammo: <span id="ammoCount">10</span></div>
+    <div>Score: <span id="score">0</span></div>
+</div>
+<script>
+// Setup
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
+const ui = document.getElementById('uiLayer');
+
+// Game variables
+let birds = [];
+let shots = [];
+let powerUps = [];
+let wind = {x: 0, y: 0.5};
+let ammo = 10;
+let score = 0;
+let level = 1;
+
+// Bird class
+class Bird {
+    constructor(size, speed, pattern) {
+        this.x = -50; // Start off-screen
+        this.y = Math.random() * (canvas.height - 50) + 25;
+        this.size = size;
+        this.speed = speed;
+        this.pattern = pattern;
+        this.color = `hsl(${Math.random() * 360}, 100%, 50%)`;
+    }
+
+    move() {
+        switch(this.pattern) {
+            case 'straight': this.x += this.speed; break;
+            case 'zigzag': 
+                this.x += this.speed; 
+                this.y += Math.sin(this.x * 0.05) * 2;
+                break;
+        }
+        if(this.x > canvas.width + 50) this.reset();
+    }
+
+    reset() {
+        this.x = -50;
+        this.y = Math.random() * (canvas.height - 50) + 25;
+    }
+
+    draw() {
+        ctx.fillStyle = this.color;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+        ctx.fill();
+    }
+}
+
+// Game loop
+function gameLoop() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    // Update and draw birds
+    birds.forEach(bird => {
+        bird.move();
+        bird.draw();
+    });
+
+    // Draw trajectory line
+    if(ammo > 0) {
+        ctx.beginPath();
+        ctx.strokeStyle = 'rgba(255,255,255,0.5)';
+        ctx.moveTo(canvas.width / 2, canvas.height);
+        ctx.lineTo(mouse.x, mouse.y);
+        ctx.stroke();
+    }
+
+    // Update shots, check collisions, etc.
+    // ... (implement shot mechanics, collision, power-ups, etc.)
+
+    requestAnimationFrame(gameLoop);
+}
+
+// Event listeners for shooting, etc.
+let mouse = {x: 0, y: 0};
+canvas.addEventListener('mousemove', (e) => {
+    mouse.x = e.clientX;
+    mouse.y = e.clientY;
+});
+
+canvas.addEventListener('click', shoot);
+
+function shoot() {
+    if(ammo > 0) {
+        shots.push({x: canvas.width / 2, y: canvas.height, dx: mouse.x - canvas.width / 2, dy: mouse.y - canvas.height});
+        ammo--;
+        document.getElementById('ammoCount').textContent = ammo;
+    }
+}
+
+// Initialize game
+function init() {
+    for(let i = 0; i < 5; i++) {
+        birds.push(new Bird(Math.random() * 10 + 5, Math.random() * 2 + 1, 'straight')); // Example initialization
+    }
+    gameLoop();
+}
+
+init();
+</script>
+</body>
+</html>

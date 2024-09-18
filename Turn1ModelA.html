@@ -1,164 +1,116 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <title>THEMIS & ARTEMIS Mission Visualization</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.3.0/d3.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@observablehq/plot@0.6"></script>
-    <link
-      rel="stylesheet"
-      href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"
-    />
+<head>
+    <meta charset="UTF-8">
+    <title>Aim and Shoot the Bird</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/normalize/8.0.1/normalize.min.css">
     <style>
-      body {
-        font-family: Arial, sans-serif;
-        background: #000;
-        color: #fff;
-        overflow: hidden;
-      }
-      #visualization {
-        width: 100vw;
-        height: 100vh;
-        position: relative;
-      }
-      .orbit {
-        stroke: #fff;
-        fill: none;
-        stroke-width: 1;
-      }
-      .probe {
-        fill: #ffd700;
-        stroke: #000;
-        stroke-width: 0.5;
-      }
-      .info-box {
-        position: absolute;
-        background: rgba(0, 0, 0, 0.8);
-        padding: 10px;
-        border-radius: 5px;
-        display: none;
-      }
-      .phase-button {
-        background-color: #4caf50; /* Green */
-        border: none;
-        color: white;
-        padding: 15px 32px;
-        text-align: center;
-        text-decoration: none;
-        display: inline-block;
-        font-size: 16px;
-        margin: 4px 2px;
-        cursor: pointer;
-      }
-    </style>
-  </head>
-  <body>
-    <div id="visualization"></div>
-    <div id="info" class="info-box"></div>
-    <div style="position: absolute; bottom: 10px; left: 10px">
-      <button class="phase-button" onclick="showPhase('Tail')">
-        Tail Phase
-      </button>
-      <button class="phase-button" onclick="showPhase('Dawn')">
-        Dawn Phase
-      </button>
-      <button class="phase-button" onclick="showPhase('Dayside')">
-        Dayside Phase
-      </button>
-      <button class="phase-button" onclick="showPhase('Dusk')">
-        Dusk Phase
-      </button>
-    </div>
-
-    <script>
-      const width = window.innerWidth,
-        height = window.innerHeight;
-      const svg = d3
-        .select('#visualization')
-        .append('svg')
-        .attr('width', width)
-        .attr('height', height);
-
-      const phases = {
-        Tail: { apogee: 12, sector: 'nightside', mmsPosition: 'dawn' },
-        Dawn: { apogee: 12, sector: 'dawnside', mmsPosition: 'dayside' },
-        Dayside: { apogee: 12, sector: 'dayside', mmsPosition: 'dusk' },
-        Dusk: { apogee: 13, sector: 'duskside', mmsPosition: 'tail' },
-      };
-
-      function drawOrbits(phase) {
-        svg.selectAll('*').remove();
-        const phaseData = phases[phase];
-        const scale = d3
-          .scaleLinear()
-          .domain([0, 30])
-          .range([0, height / 2 - 50]);
-        const center = { x: width / 2, y: height / 2 };
-
-        // Earth
-        svg
-          .append('circle')
-          .attr('cx', center.x)
-          .attr('cy', center.y)
-          .attr('r', 20)
-          .attr('fill', 'blue');
-
-        // Draw THEMIS orbits
-        for (let i = 0; i < 3; i++) {
-          const r = scale(phaseData.apogee + i * 0.5);
-          svg
-            .append('ellipse')
-            .attr('class', 'orbit')
-            .attr('cx', center.x)
-            .attr('cy', center.y)
-            .attr('rx', r)
-            .attr('ry', r * 0.5)
-            .attr('transform', `rotate(${i * 30}, ${center.x}, ${center.y})`);
-
-          // Probe position
-          svg
-            .append('circle')
-            .attr('class', 'probe')
-            .attr('cx', center.x + r * Math.cos((i * Math.PI) / 6))
-            .attr('cy', center.y + r * 0.5 * Math.sin((i * Math.PI) / 6))
-            .attr('r', 5)
-            .on('mouseover', function () {
-              showInfo(phase, i);
-            })
-            .on('mouseout', hideInfo);
+        #gameArea {
+            width: 800px;
+            height: 400px;
+            background: url('background.png') no-repeat;
+            background-size: cover;
+            position: relative;
+            overflow: hidden;
         }
+        .bird {
+            position: absolute;
+            background-image: url('bird.png');
+            background-size: contain;
+            background-repeat: no-repeat;
+        }
+        #crosshair {
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            border: 2px solid red;
+            border-radius: 50%;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+<div id="gameArea">
+    <div id="crosshair"></div>
+</div>
+<div id="ui">
+    <span>Score: <span id="score">0</span></span>
+    <span>Ammo: <span id="ammo">10</span></span>
+</div>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const gameArea = document.getElementById('gameArea');
+    const scoreDisplay = document.getElementById('score');
+    const ammoDisplay = document.getElementById('ammo');
+    const crosshair = document.getElementById('crosshair');
+    let score = 0;
+    let ammo = 10;
+    let birds = [];
+    let wind = {x: 0, y: 0};
 
-        // MMS position indicator
-        svg
-          .append('text')
-          .attr('x', width - 100)
-          .attr('y', 50)
-          .text(`MMS: ${phaseData.mmsPosition} sector`)
-          .attr('fill', 'white');
-      }
+    function Bird(size, speed, pattern) {
+        this.x = -50; // Start off-screen
+        this.y = Math.random() * (gameArea.offsetHeight - 50);
+        this.size = size;
+        this.speed = speed;
+        this.element = document.createElement('div');
+        this.element.className = 'bird';
+        this.element.style.width = `${size}px`;
+        this.element.style.height = `${size}px`;
+        gameArea.appendChild(this.element);
 
-      function showInfo(phase, probeIndex) {
-        d3.select('#info')
-          .style('display', 'block')
-          .html(
-            `Phase: ${phase}<br>Probe ${probeIndex + 3}: Studying ${
-              phaseData.sector
-            } interactions`
-          )
-          .style('left', d3.event.pageX + 10 + 'px')
-          .style('top', d3.event.pageY - 28 + 'px');
-      }
+        // Simple movement pattern for now
+        this.update = function() {
+            this.x += this.speed;
+            if (this.x > gameArea.offsetWidth) this.reset();
+            this.element.style.left = `${this.x}px`;
+            this.element.style.top = `${this.y}px`;
+        };
 
-      function hideInfo() {
-        d3.select('#info').style('display', 'none');
-      }
+        this.reset = function() {
+            this.x = -50;
+            this.y = Math.random() * (gameArea.offsetHeight - 50);
+        };
+    }
 
-      function showPhase(phase) {
-        drawOrbits(phase);
-      }
+    // Create birds
+    for(let i = 0; i < 5; i++) {
+        birds.push(new Bird(Math.random() * 30 + 20, Math.random() * 2 + 1, 'linear'));
+    }
 
-      // Initial draw
-      drawOrbits('Tail');
-    </script>
-  </body>
+    // Game loop
+    function gameLoop() {
+        birds.forEach(bird => bird.update());
+        // Update wind or other game dynamics here
+        requestAnimationFrame(gameLoop);
+    }
+
+    // Aiming and shooting
+    gameArea.addEventListener('mousemove', function(e) {
+        crosshair.style.display = 'block';
+        crosshair.style.left = `${e.pageX}px`;
+        crosshair.style.top = `${e.pageY}px`;
+    });
+
+    gameArea.addEventListener('click', function(e) {
+        if (ammo > 0) {
+            ammo--;
+            ammoDisplay.textContent = ammo;
+            // Simplified shot logic
+            birds.forEach(bird => {
+                if (e.pageX > bird.x && e.pageX < bird.x + bird.size && 
+                    e.pageY > bird.y && e.pageY < bird.y + bird.size) {
+                    score += 10; // Points for hitting a bird
+                    scoreDisplay.textContent = score;
+                    bird.reset();
+                }
+            });
+        }
+    });
+
+    // Start the game loop
+    gameLoop();
+});
+</script>
+</body>
 </html>
